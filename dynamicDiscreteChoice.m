@@ -73,12 +73,12 @@ Two functions, |flowpayoffs| and |bellman|, together code up this simple model. 
 	
 	First, we set the number of time periods (|nPeriods|) and firms (|nFirms|) that we would like to have in our sample.
 %}
-nPeriods = 100
-nFirms = 1000
+nPeriods = 100;
+nFirms = 1000;
 %{
 	We also set the tolerance |tolFixedPoint| on the fixed point $U$ of $\Psi$ that we will use to determine the simulation's entry and exit rules. This same tolerance will also be used when solving the model in the inner loop of the NFXP procedure.
 %}
-tolFixedPoint = 1e-10
+tolFixedPoint = 1e-10;
 %{
 Next, we specify the values of the model's parameters used in the simulation: 
 	\begin{dictionary}
@@ -91,12 +91,12 @@ Next, we specify the values of the model's parameters used in the simulation:
 	\end{dictionary}
 	%}													
 nSuppX = 5;
-supportX = (1:nSuppX)'
+supportX = (1:nSuppX)';
 capPi = 1./(1+abs(ones(nSuppX,1)*(1:nSuppX)-(1:nSuppX)'*ones(1,nSuppX)));
-capPi = capPi./(sum(capPi')'*ones(1,nSuppX))
-beta = [-0.1*nSuppX;0.2]
-delta = [0;1]
-rho = 0.95	
+capPi = capPi./(sum(capPi')'*ones(1,nSuppX));
+beta = [-0.1*nSuppX;0.2];
+delta = [0;1];
+rho = 0.95	;
 %{
 For these parameter values, we compute the flow payoffs $u_0$ (|u0|) and $u_1$ (|u1|), the choice-specific expected discounted values $U_0$ (|capU0|) and $U_1$ (|capU1|), and their contrast $\Delta U$ (|deltaU|).
 %}
@@ -128,7 +128,7 @@ lowerBounds(3) = 0;
 %}
 OptimizerOptions = optimset('Display','iter','Algorithm','interior-point','AlwaysHonorConstraints','bounds',...
                             'GradObj','on','TolFun',1E-6,'TolX',1E-10,'DerivativeCheck','off','TypicalX',[beta;delta(2)]);
-[maxLikEstimates,~,exitflag] = fmincon(objectiveFunction,startvalues,[],[],[],[],lowerBounds,[],[],OptimizerOptions)
+[maxLikEstimates,~,exitflag] = fmincon(objectiveFunction,startvalues,[],[],[],[],lowerBounds,[],[],OptimizerOptions);
 %{
 This gives maximum partial likelihood estimates of $(\beta_0,\beta_1,\delta_1)$. To calculate standard errors, we call |negLogLik| once more to estimate the corresponding Fisher information matrix and store this in |informationMatrix|. Its inverse is an estimate of the maximum likelihood estimator's asymptotic variance-covariance matrix.
 %}
@@ -145,7 +145,7 @@ disp([[beta;delta(2)] startvalues maxLikEstimates standardErrors]);
 \subsection{Extension to an Unknown Markov Transition Matrix for the State}
 Finally, consider the more realistic case that $\Pi$ is not known. In this case, \cite{nh94:rust} suggests a two-stage procedure. In the first stage, we estimate $\Pi$ using |estimatePi| and store the results in a $K\times K$ matrix |piHat|.
 %}
-piHat = estimatePi(iX,nSuppX)
+piHat = estimatePi(iX,nSuppX);
 %{ 
 In the second stage, maximum partial likelihood estimates of $(\beta_0,\beta_1,\delta_1)$ can be computed using the NFXP procedure, with |piHat| replacing |capPi|. This, with the question how the first-stage sampling error affects the precision of the second-stage estimator of $(\beta_0,\beta_1,\delta_1)$, is left for the exercises.
 
