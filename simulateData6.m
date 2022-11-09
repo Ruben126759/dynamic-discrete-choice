@@ -4,7 +4,7 @@
 %{
 Suppose that we have computed $\Delta U(x,a)\equiv U_1(x,a)-U_0(x,a)$ for all $(x,a)\in{\cal X}\times\{0,1\}$, using e.g. |flowpayoffs| and |fixedPoint|, and that we have specified the Markov transition matrix $\Pi$. Then, the function |simulateData| can be used to simulate $N$ independent histories $\{(X_1,A_1),\ldots,(X_T,A_T)\}$, taking $A_0=0$ as given and drawing $X_1$ from the stationary distribution of $\{X_t\}$.
 %}
-function [choices,iX, Proptype1] = simulateData6(deltaUtype1, deltaUtype2,capPi,nPeriods,nFirms)
+function [choices,iX] = simulateData6(deltaUtype1, deltaUtype2,capPi,nPeriods,nFirms, Types)
 %{
 The function |simulateData| requires the following input arguments:
 \begin{dictionary}
@@ -61,16 +61,12 @@ end
 for t = 2:nPeriods
 	iX2 = [iX2;randomDiscrete(capPi(iX2(end,:),:)')];
 	deltaEpsilon  = random('ev',zeros(1,nFirms),ones(1,nFirms))-random('ev',zeros(1,nFirms),ones(1,nFirms));
-	choicestype2 = [choicestype2;(deltaUtype1(iX2(end,:)+nSuppX*choicestype2(end,:)) > deltaEpsilon)];
+	choicestype2 = [choicestype2;(deltaUtype2(iX2(end,:)+nSuppX*choicestype2(end,:)) > deltaEpsilon)];
 end
-
-Types = (randn(nFirms,1)>0.4);
-Proptype1 = 1- sum(Types)/nFirms;
-Types = Types+1;
 
 choices = nan(nPeriods, nFirms);
 for i=1:nFirms
-    if Types(i,1)==1
+    if Types(i)==1
     choices(:,i) = choicestype1(:,i);
     iX(:,i) = iX1(:,i);
     else

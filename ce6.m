@@ -12,8 +12,8 @@ nFirms = 1000;
 nSim = 100;
 rng('default')
 
-Estimates=nan(nSim, 3);
-StdErr=nan(nSim, 3);
+Estimates=nan(nSim, 5);
+StdErr=nan(nSim, 5);
 %{
 	We also set the tolerance |tolFixedPoint| on the fixed point $U$ of $\Psi$ that we will use to determine the simulation's entry and exit rules. This same tolerance will also be used when solving the model in the inner loop of the NFXP procedure.
 %}
@@ -52,44 +52,46 @@ deltaUtype2 = capU1type2-capU0type2;
 	With $\Delta U$ computed, and $\Pi$ specified, we proceed to simulate a $T\times N$ matrix of choices |choices| and a $T\times N$ matrix of states |iX| (recall from Section \ref{simulate} that |iX| contains indices that point to elements of ${\cal X}$ rather than those values themselves).
 %}
 
-%for i=1:nSim
-[choices,iX, Proptype1] = simulateData6(deltaUtype1, deltaUtype2,capPi,nPeriods,nFirms); %DeltaUtypeI %DeltaUtypeII
+%{
+Before we can put |fmincon| to work on this objective function, we first have to set some of its other input arguments. We specify a $3\times 1$ vector |startvalues| with starting values for the parameters to be estimated, $(\beta_0,\beta_1,\delta_1)'$.
+%}
+startvalues = [randn(2,1); abs(randn(2,1)); rand(1)/2];
+startvalues(4) = startvalues(3)+abs(randn(1));
+
+Types = (rand(nFirms,1)<0.8);
+Proptype1 = 1- sum(Types)/nFirms;
+Types = Types+1;
+
+for i=1:nSim
+[choices,iX] = simulateData6(deltaUtype1, deltaUtype2,capPi,nPeriods,nFirms, Types); %DeltaUtypeI %DeltaUtypeII
 %{
 \subsection{Nested Fixed Point Maximum Likelihood Estimation}
 
 First, suppose that $\Pi$ is known. We use |fmincon| from \textsc{Matlab}'s \textsc{Optimization Toolbox} to maximize the partial likelihood for the choices (the code can easily be adapted to use other optimizers and packages, because these have a very similar \url{http://www.mathworks.nl/help/optim/ug/fmincon.html}{syntax}; see below). Because |fmincon| is a minimizer, we use minus the log likelihood as its objective. The function |negLogLik| computes this objective, but has input arguments other than the vector of model parameters to be estimated. Because \url{http://www.mathworks.nl/help/optim/ug/passing-extra-parameters.html}{the syntax of |fmincon| does not allow this}, we define a function handle |objectiveFunction| to an anonymous function that equals |negLogLik| but does not have this extra inputs.
 %}
-objectiveFunction = @(parameters)negLogLik6(choices,iX,supportX,capPi,parameters(1:2),[delta1(1);parameters(3:4)],...
+objectiveFunction = @(parameters)negLogLik6(choices,iX,supportX,capPi,parameters(1:2),[delta1(1);parameters(3)], [delta2(1);parameters(4)],parameters(5),...
                                            rho,@flowpayoffs,@bellman,@fixedPoint,tolFixedPoint);
-%{
-Before we can put |fmincon| to work on this objective function, we first have to set some of its other input arguments. We specify a $3\times 1$ vector |startvalues| with starting values for the parameters to be estimated, $(\beta_0,\beta_1,\delta_1)'$.
-%}
-startvalues = [randn(3,1); abs(randn(2,1))];
+
 %{
     We also set a lower bound of 0 on the third parameter, $\delta_1$, and (nonbinding) lower bounds of $-\infty$ on the other two parameters (|lowerBounds|). There is no need to specify upper bounds.\footnote{Note that |fmincon|, but also its alternatives discussed below, allow the user to specify bounds on parameters; if another function is used that does not allow for bounds on the parameters, you can use an alternative parameterization to ensure that parameters only take values in some admissible set (for example, you can specify $\delta_1=\exp(\delta_1^*)$ for $\delta_1^*\in\mathbb{R}$ to ensure that $\delta_1>0$). Minimizers like |fmincon| also allow you to impose more elaborate constraints on the parameters; you will need this option when implementing the MPEC alternative to NFXP of \cite{ecta12:juddsu} (see Section \ref{exercises}).}
 %}
 lowerBounds = -Inf*ones(size(startvalues));
-lowerBounds(4:5) = 0;
+lowerBounds(3:5) = 0;
+upperBounds = Inf*ones(size(startvalues));
+upperBounds(5) = 0.5;
 %{
     Finally, we pass some options, including tolerances that specify the criterion for the outer loop convergence, to |fmincon| through the structure |OptimizerOptions| (recall that we have already set the inner loop tolerance in |tolFixedPoint|). We use the function |optimset| from the \textsc{Optimization Toolbox} to assign values to specific fields (options) in |OptimizerOptions| and then call |fmincon| to run the NFXP maximum likelihood procedure (to use \textsc{Knitro} instead, simply replace |fmincon| by |knitromatlab|, |knitrolink|, or |ktrlink|, depending on the packages installed\footnote{|fmincon| requires \textsc{Matlab}'s \textsc{Optimization Toolbox}, |knitromatlab| is included in \textsc{Knitro} 9.0, |knitrolink| uses both, and |ktrlink| can be used if the \textsc{Optimization Toolbox} is installed with an earlier version of \textsc{Knitro}.}).
 %}
-OptimizerOptions = optimset('Display','iter','Algorithm','interior-point','AlwaysHonorConstraints','bounds',...
-                            'GradObj','on','TolFun',1E-6,'TolX',1E-10,'DerivativeCheck','off','TypicalX',[beta;delta1(2);delta2(2); Proptype1]);
-[maxLikEstimates,~,exitflag] = fmincon(objectiveFunction,startvalues,[],[],[],[],lowerBounds,[],[],OptimizerOptions);
+OptimizerOptions = optimset('Display','off','Algorithm','interior-point','AlwaysHonorConstraints','bounds',...
+                            'GradObj','off','TolFun',1E-6,'TolX',1E-10,'DerivativeCheck','off','TypicalX',[beta;delta1(2);delta2(2); Proptype1]);
+[maxLikEstimates,~,exitflag] = fmincon(objectiveFunction,startvalues,[],[],[],[],lowerBounds,upperBounds,[],OptimizerOptions);
 %{
 This gives maximum partial likelihood estimates of $(\beta_0,\beta_1,\delta_1)$. To calculate standard errors, we call |negLogLik| once more to estimate the corresponding Fisher information matrix and store this in |informationMatrix|. Its inverse is an estimate of the maximum likelihood estimator's asymptotic variance-covariance matrix.
 %}
-[~,~,informationMatrix] = objectiveFunction(maxLikEstimates);
-standardErrors = diag(sqrt(inv(informationMatrix)));
 Estimates(i,:)=maxLikEstimates;
-StdErr(i,:)=standardErrors;
-%end
-%{
-The resulting parameter estimates, and numerical and analytical standard errors are displayed (column 3-5), together with the parameters' true (first column) and starting values (second column).
-Avg of the esimated parameters is very close to the truth with small SE,
-analytical somewhat smaller than numerical but very close.
-%}
+end
+
 disp('Summary of Results');
 disp('--------------------------------------------');
-disp('     true     start    mean_est   ste_num   ste_an');
-disp([[beta;delta(2)] startvalues mean(Estimates, 1)' std(Estimates, 1)' mean(StdErr,1)']);
+disp('     true     start    mean_est   ste_num');
+disp([[beta;delta1(2);delta2(2);Proptype1] startvalues mean(Estimates, 1)' std(Estimates, 1)' ]);

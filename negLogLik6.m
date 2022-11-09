@@ -5,7 +5,7 @@
 The function |negLogLik| computes minus the log partial likelihood for the conditional choice part of the data. Optionally, it also returns minus the corresponding score vector and an estimate of the information matrix for the parameter (sub)vector $\theta\equiv(\beta_0,\beta_1,\delta_1)'$ (the scores are specific to the estimation example in Section \ref{script}'s script and should be adapted for inference on other parameters).
 %}
 function nll = ...
-         negLogLik6(choices,iX,supportX,capPi,beta,delta1,delta2,Proptype1, rho,flowpayoffs,bellman,fixedPoint,tolFixedPoint)
+         negLogLik6(choices,iX,supportX,capPi,beta,delta1,delta2,Proptype1,rho,flowpayoffs,bellman,fixedPoint,tolFixedPoint)
 %{
 The function |negLogLik| requires the following input arguments:
 	\begin{dictionary}
@@ -37,11 +37,11 @@ nSuppX = size(supportX,1);
 Next, it computes the flow payoffs $u_0$ (|u0|) and $u_1$ (|u1|), the choice-specific net expected discounted values $U_0$ (|capU0|) and $U_1$ (|capU1|), their contrast $\Delta U$ (|deltaU|), and the implied probabilities $1/\left[1+\exp(\Delta U)\right]$ of not serving the market (|pExit|) for the inputted parameter values. Note that this implements the NFXP procedure's inner loop.
 %}
 [u0type1,u1type1] = flowpayoffs(supportX,beta,delta1); 
-[capU0type1,capU1type1] = fixedPoint(u0type1,u1type1,capPi,rho,tolFixedPoint,@bellman,[],[]);
+[capU0type1,capU1type1] = fixedPoint(u0type1,u1type1,capPi,rho,tolFixedPoint,bellman,[],[]);
 deltaUtype1 = capU1type1-capU0type1;
 
 [u0type2,u1type2] = flowpayoffs(supportX,beta,delta2); 
-[capU0type2,capU1type2] = fixedPoint(u0type2,u1type2,capPi,rho,tolFixedPoint,@bellman,[],[]);
+[capU0type2,capU1type2] = fixedPoint(u0type2,u1type2,capPi,rho,tolFixedPoint,bellman,[],[]);
 deltaUtype2 = capU1type2-capU0type2;
 
 pExittype1 = 1./(1+exp(deltaUtype1));
@@ -55,4 +55,4 @@ with $a_{0n}=0$. The function |negLogLik| first computes these probabilities for
 laggedChoices = [zeros(1,size(choices,2));choices(1:end-1,:)];
 ptype1 = choices + (1-2*choices).*pExittype1(iX+nSuppX*laggedChoices);
 ptype2 = choices + (1-2*choices).*pExittype2(iX+nSuppX*laggedChoices);
-nll = -sum(log(Proptype1*prod(ptype1,1)+(1-Proptype1)*prod(ptype2,1)));
+nll = -sum(log(Proptype1*prod(ptype1)+(1-Proptype1)*prod(ptype2)));
